@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Awarion - SEO Dashboard - Behoove Studio</title>
+  <style>
+    :root {
+      --bg: #0b0d10;
+      --card: #14181d;
+      --line: #232a31;
+      --text: #e8ecef;
+      --muted: #8a949c;
+      --accent: #e62200;
+      --good: #4ade80;
+      --bad: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 32px 24px 80px; }
+    header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 28px; }
+    h1 { font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+    h2 { font-size: 14px; font-weight: 600; margin: 0 0 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .sub { color: var(--muted); font-size: 13px; }
+    .grid { display: grid; gap: 16px; }
+    .cards { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 24px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 16px 18px;
+    }
+    .kpi-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .kpi-value { font-size: 26px; font-weight: 600; margin-top: 6px; letter-spacing: -0.02em; }
+    .kpi-delta { font-size: 12px; margin-top: 4px; }
+    .kpi-delta.up { color: var(--good); }
+    .kpi-delta.down { color: var(--bad); }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-weight: 500; text-transform: uppercase; font-size: 11px; letter-spacing: 0.06em; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    canvas { width: 100% !important; height: 260px !important; }
+    .empty { color: var(--muted); font-size: 14px; padding: 24px 0; text-align: center; }
+    .footer { color: var(--muted); font-size: 12px; margin-top: 32px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 720px) { .row2 { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Awarion - SEO Dashboard</h1>
+        <div class="sub" id="meta">loading...</div>
+      </div>
+      <div class="sub">Behoove Studio</div>
+    </header>
+
+    <h2>Search Console - last 28 days</h2>
+    <div class="grid cards" id="gsc-kpis"></div>
+    <div class="panel"><canvas id="gsc-chart"></canvas></div>
+
+    <h2>Analytics - last 28 days</h2>
+    <div class="grid cards" id="ga4-kpis"></div>
+    <div class="panel"><canvas id="ga4-chart"></canvas></div>
+
+    <div class="row2">
+      <div class="panel">
+        <h2>Top Queries</h2>
+        <div id="top-queries"></div>
+      </div>
+      <div class="panel">
+        <h2>Top Pages (GSC)</h2>
+        <div id="top-pages-gsc"></div>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="panel">
+        <h2>Top Pages (GA4)</h2>
+        <div id="top-pages-ga4"></div>
+      </div>
+      <div class="panel">
+        <h2>Top Sources</h2>
+        <div id="top-sources"></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Refreshed weekly. Last data: <span id="generated-at">-</span>.
+      Unlisted - share link only.
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script>
+    const fmtInt = (n) => (n == null ? "-" : Number(n).toLocaleString("en-US"));
+    const fmtPct = (n) => (n == null ? "-" : (n * 100).toFixed(2) + "%");
+    const fmtPos = (n) => (n == null ? "-" : Number(n).toFixed(1));
+    const fmtDur = (s) => {
+      if (s == null) return "-";
+      const m = Math.floor(s / 60), r = Math.round(s % 60);
+      return `${m}m ${r}s`;
+    };
+
+    function delta(curr, prior) {
+      if (prior == null || prior === 0) return null;
+      return (curr - prior) / prior;
+    }
+
+    function kpi(label, value, prior, current, kind) {
+      const d = delta(current, prior);
+      let deltaHtml = "";
+      if (d != null) {
+        const up = d >= 0;
+        const cls = (kind === "lower-better" ? !up : up) ? "up" : "down";
+        const arrow = up ? "+" : "";
+        deltaHtml = `<div class="kpi-delta ${cls}">${arrow}${(d * 100).toFixed(1)}% vs prior 28d</div>`;
+      }
+      return `<div class="card"><div class="kpi-label">${label}</div><div class="kpi-value">${value}</div>${deltaHtml}</div>`;
+    }
+
+    function table(rows, cols) {
+      if (!rows || rows.length === 0) return `<div class="empty">No data yet.</div>`;
+      const head = "<tr>" + cols.map(c => `<th class="${c.num ? 'num' : ''}">${c.label}</th>`).join("") + "</tr>";
+      const body = rows.map(r => "<tr>" + cols.map(c => `<td class="${c.num ? 'num' : ''}">${c.fmt ? c.fmt(r[c.key]) : (r[c.key] ?? '-')}</td>`).join("") + "</tr>").join("");
+      return `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
+    }
+
+    function lineChart(canvasId, labels, datasets) {
+      const ctx = document.getElementById(canvasId);
+      if (!ctx) return;
+      new Chart(ctx, {
+        type: "line",
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          plugins: { legend: { labels: { color: "#e8ecef" } } },
+          scales: {
+            x: { ticks: { color: "#8a949c" }, grid: { color: "#232a31" } },
+            y: { ticks: { color: "#8a949c" }, grid: { color: "#232a31" }, beginAtZero: true },
+          },
+        },
+      });
+    }
+
+    function renderEmpty(el, msg) {
+      el.innerHTML = `<div class="empty">${msg}</div>`;
+    }
+
+    async function load() {
+      const res = await fetch("./data.json?t=" + Date.now());
+      const data = await res.json();
+
+      document.getElementById("generated-at").textContent = data.generatedAt || "-";
+      const meta = [];
+      if (data.gsc?.window) meta.push(`${data.gsc.window.start} to ${data.gsc.window.end}`);
+      document.getElementById("meta").textContent = meta.join(" - ") || "No data yet";
+
+      // GSC KPIs
+      const gscEl = document.getElementById("gsc-kpis");
+      if (data.gsc?.totals) {
+        const c = data.gsc.totals.current, p = data.gsc.totals.prior;
+        gscEl.innerHTML = [
+          kpi("Clicks", fmtInt(c.clicks), p.clicks, c.clicks),
+          kpi("Impressions", fmtInt(c.impressions), p.impressions, c.impressions),
+          kpi("CTR", fmtPct(c.ctr), p.ctr, c.ctr),
+          kpi("Avg Position", fmtPos(c.position), p.position, c.position, "lower-better"),
+        ].join("");
+      } else {
+        gscEl.innerHTML = `<div class="card empty">No Search Console data yet. Once GSC_SITE_URL secret is set and the workflow runs, numbers appear here.</div>`;
+      }
+
+      // GSC chart
+      if (data.gsc?.daily?.length) {
+        const labels = data.gsc.daily.map(d => d.date);
+        lineChart("gsc-chart", labels, [
+          { label: "Clicks", data: data.gsc.daily.map(d => d.clicks), borderColor: "#e62200", backgroundColor: "rgba(230,34,0,0.12)", tension: 0.3, fill: true },
+          { label: "Impressions / 10", data: data.gsc.daily.map(d => d.impressions / 10), borderColor: "#60a5fa", backgroundColor: "rgba(96,165,250,0.08)", tension: 0.3, fill: false, yAxisID: "y" },
+        ]);
+      }
+
+      // GA4 KPIs
+      const ga4El = document.getElementById("ga4-kpis");
+      if (data.ga4?.totals) {
+        const c = data.ga4.totals.current, p = data.ga4.totals.prior;
+        ga4El.innerHTML = [
+          kpi("Sessions", fmtInt(c.sessions), p.sessions, c.sessions),
+          kpi("Users", fmtInt(c.users), p.users, c.users),
+          kpi("Pageviews", fmtInt(c.pageviews), p.pageviews, c.pageviews),
+          kpi("Bounce Rate", fmtPct(c.bounceRate), p.bounceRate, c.bounceRate, "lower-better"),
+        ].join("");
+      } else {
+        ga4El.innerHTML = `<div class="card empty">No Analytics data yet. Once GA4_PROPERTY_ID secret is set and the workflow runs, numbers appear here.</div>`;
+      }
+
+      // GA4 chart
+      if (data.ga4?.daily?.length) {
+        const labels = data.ga4.daily.map(d => d.date);
+        lineChart("ga4-chart", labels, [
+          { label: "Sessions", data: data.ga4.daily.map(d => d.sessions), borderColor: "#4ade80", backgroundColor: "rgba(74,222,128,0.12)", tension: 0.3, fill: true },
+          { label: "Users", data: data.ga4.daily.map(d => d.users), borderColor: "#fbbf24", backgroundColor: "rgba(251,191,36,0.10)", tension: 0.3, fill: false },
+        ]);
+      }
+
+      // Top queries
+      document.getElementById("top-queries").innerHTML = table(data.gsc?.topQueries, [
+        { key: "query", label: "Query" },
+        { key: "clicks", label: "Clicks", num: true, fmt: fmtInt },
+        { key: "impressions", label: "Impr.", num: true, fmt: fmtInt },
+        { key: "position", label: "Pos.", num: true, fmt: fmtPos },
+      ]);
+
+      // Top pages GSC
+      document.getElementById("top-pages-gsc").innerHTML = table(data.gsc?.topPages, [
+        { key: "page", label: "Page" },
+        { key: "clicks", label: "Clicks", num: true, fmt: fmtInt },
+        { key: "impressions", label: "Impr.", num: true, fmt: fmtInt },
+      ]);
+
+      // Top pages GA4
+      document.getElementById("top-pages-ga4").innerHTML = table(data.ga4?.topPages, [
+        { key: "path", label: "Path" },
+        { key: "pageviews", label: "Views", num: true, fmt: fmtInt },
+        { key: "sessions", label: "Sessions", num: true, fmt: fmtInt },
+      ]);
+
+      // Top sources
+      document.getElementById("top-sources").innerHTML = table(data.ga4?.topSources, [
+        { key: "source", label: "Source" },
+        { key: "medium", label: "Medium" },
+        { key: "sessions", label: "Sessions", num: true, fmt: fmtInt },
+      ]);
+    }
+
+    load().catch((err) => {
+      console.error(err);
+      document.getElementById("meta").textContent = "Failed to load data.json - " + err.message;
+    });
+  </script>
+</body>
+</html>

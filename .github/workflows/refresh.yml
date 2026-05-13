@@ -1,0 +1,46 @@
+name: refresh-dashboards
+
+on:
+  schedule:
+    # Mondays 06:00 UTC ~= 09:00 GMT+3
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      client:
+        description: "Client slug to refresh (e.g. awarion). Leave blank for all configured."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  awarion:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.client == '' || inputs.client == 'awarion' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: write service-account key
+        run: |
+          echo "$GCP_SA_KEY" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+      - name: fetch
+        env:
+          CLIENT: awarion
+          GA4_PROPERTY_ID: ${{ secrets.AWARION_GA4_PROPERTY_ID }}
+          GSC_SITE_URL: ${{ secrets.AWARION_GSC_SITE_URL }}
+        run: bash scripts/run_all.sh
+      - name: commit
+        run: |
+          git config user.name "behoove-dashboards-bot"
+          git config user.email "actions@github.com"
+          git add dashboards/awarion/data.json
+          git diff --cached --quiet || git commit -m "refresh: awarion $(date -u +%Y-%m-%d)"
+          git push

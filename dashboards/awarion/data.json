@@ -1,0 +1,7 @@
+{
+  "client": "awarion",
+  "generatedAt": "2026-05-14",
+  "ga4": null,
+  "gsc": null,
+  "note": "Placeholder. First real refresh runs after GA4_PROPERTY_ID + GSC_SITE_URL secrets are configured and the workflow fires."
+}
