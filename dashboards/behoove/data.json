@@ -1,0 +1,7 @@
+{
+  "client": "behoove",
+  "generatedAt": "2026-05-14",
+  "ga4": null,
+  "gsc": null,
+  "note": "Placeholder. First refresh runs after BEHOOVE_GA4_PROPERTY_ID + BEHOOVE_GSC_SITE_URL secrets are set."
+}
