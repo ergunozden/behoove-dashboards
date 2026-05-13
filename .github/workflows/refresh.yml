@@ -25,17 +25,14 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
-      - name: write service-account key
-        run: |
-          echo "$GCP_SA_KEY" > "$RUNNER_TEMP/sa.json"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
-        env:
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
       - name: fetch
         env:
           CLIENT: behoove
           GA4_PROPERTY_ID: ${{ secrets.BEHOOVE_GA4_PROPERTY_ID }}
           GSC_SITE_URL: ${{ secrets.BEHOOVE_GSC_SITE_URL }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
         run: bash scripts/run_all.sh
       - name: commit
         run: |
@@ -65,19 +62,15 @@ jobs:
           else
             echo "configured=true" >> "$GITHUB_OUTPUT"
           fi
-      - name: write service-account key
-        if: steps.gate.outputs.configured == 'true'
-        run: |
-          echo "$GCP_SA_KEY" > "$RUNNER_TEMP/sa.json"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
-        env:
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
       - name: fetch
         if: steps.gate.outputs.configured == 'true'
         env:
           CLIENT: awarion
           GA4_PROPERTY_ID: ${{ secrets.AWARION_GA4_PROPERTY_ID }}
           GSC_SITE_URL: ${{ secrets.AWARION_GSC_SITE_URL }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
         run: bash scripts/run_all.sh
       - name: commit
         if: steps.gate.outputs.configured == 'true'

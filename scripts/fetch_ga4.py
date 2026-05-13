@@ -2,11 +2,13 @@
 """Fetch GA4 metrics and write to dashboards/<client>/data.json.
 
 Usage:
-  GA4_PROPERTY_ID=123456789 GOOGLE_APPLICATION_CREDENTIALS=./sa.json \
-    python scripts/fetch_ga4.py awarion
+  GA4_PROPERTY_ID=123456789 \
+    GOOGLE_OAUTH_CLIENT_ID=... \
+    GOOGLE_OAUTH_CLIENT_SECRET=... \
+    GOOGLE_OAUTH_REFRESH_TOKEN=... \
+    python scripts/fetch_ga4.py behoove
 
-Reads:  GOOGLE_APPLICATION_CREDENTIALS (path to service-account JSON)
-        GA4_PROPERTY_ID                (numeric GA4 property ID)
+Reads:  GA4_PROPERTY_ID (numeric GA4 property ID) + OAuth env vars from _auth.
 Writes: dashboards/<client>/data.json -- merged with any existing GSC block.
 """
 from __future__ import annotations
@@ -25,11 +27,21 @@ from google.analytics.data_v1beta.types import (
     RunReportRequest,
 )
 
+# Local imports
+sys_path_added = False
+try:
+    from _auth import oauth_credentials
+except ImportError:
+    import os as _os
+    import sys as _sys
+    _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    from _auth import oauth_credentials  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def fetch(property_id: str) -> dict:
-    client = BetaAnalyticsDataClient()
+    client = BetaAnalyticsDataClient(credentials=oauth_credentials())
     today = date.today()
     start = today - timedelta(days=28)
     prev_start = start - timedelta(days=28)

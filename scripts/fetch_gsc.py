@@ -2,11 +2,14 @@
 """Fetch Search Console metrics and merge into dashboards/<client>/data.json.
 
 Usage:
-  GSC_SITE_URL='sc-domain:awarion.com' GOOGLE_APPLICATION_CREDENTIALS=./sa.json \
-    python scripts/fetch_gsc.py awarion
+  GSC_SITE_URL='sc-domain:behoovestudio.com' \
+    GOOGLE_OAUTH_CLIENT_ID=... \
+    GOOGLE_OAUTH_CLIENT_SECRET=... \
+    GOOGLE_OAUTH_REFRESH_TOKEN=... \
+    python scripts/fetch_gsc.py behoove
 
-GSC_SITE_URL accepts either a URL-prefix property (e.g. 'https://awarion.com/')
-or a Domain property prefixed 'sc-domain:awarion.com'.
+GSC_SITE_URL accepts either a URL-prefix property ('https://behoovestudio.com/')
+or a Domain property prefixed 'sc-domain:behoovestudio.com'.
 """
 from __future__ import annotations
 
@@ -16,18 +19,16 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 
-from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _auth import oauth_credentials  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
-SCOPES = ["https://www.googleapis.com/auth/webmasters.readonly"]
 
 
 def client():
-    creds = service_account.Credentials.from_service_account_file(
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"], scopes=SCOPES
-    )
-    return build("searchconsole", "v1", credentials=creds, cache_discovery=False)
+    return build("searchconsole", "v1", credentials=oauth_credentials(), cache_discovery=False)
 
 
 def query(svc, site: str, start: str, end: str, dimensions: list[str], row_limit: int = 25) -> list[dict]:

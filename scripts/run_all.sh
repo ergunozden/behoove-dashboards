@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
-# Pull all data for a single client. Driven by env vars; safe to call locally or from CI.
+# Pull all data for a single client. Safe to call locally or from CI.
 #
 # Required env:
-#   CLIENT                  -- e.g. "awarion"
-#   GOOGLE_APPLICATION_CREDENTIALS -- path to service-account JSON
-#   GA4_PROPERTY_ID         -- numeric GA4 property ID
-#   GSC_SITE_URL            -- e.g. "sc-domain:awarion.com" or "https://awarion.com/"
+#   CLIENT                          -- e.g. "behoove"
+#   GOOGLE_OAUTH_CLIENT_ID
+#   GOOGLE_OAUTH_CLIENT_SECRET
+#   GOOGLE_OAUTH_REFRESH_TOKEN
+# Optional env (per source; skip silently when blank):
+#   GA4_PROPERTY_ID                 -- numeric GA4 property ID
+#   GSC_SITE_URL                    -- e.g. "sc-domain:behoovestudio.com"
 set -euo pipefail
 
 : "${CLIENT:?CLIENT env required}"
-: "${GOOGLE_APPLICATION_CREDENTIALS:?GOOGLE_APPLICATION_CREDENTIALS env required}"
+: "${GOOGLE_OAUTH_CLIENT_ID:?GOOGLE_OAUTH_CLIENT_ID env required}"
+: "${GOOGLE_OAUTH_CLIENT_SECRET:?GOOGLE_OAUTH_CLIENT_SECRET env required}"
+: "${GOOGLE_OAUTH_REFRESH_TOKEN:?GOOGLE_OAUTH_REFRESH_TOKEN env required}"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"

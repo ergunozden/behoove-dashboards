@@ -35,41 +35,57 @@ git commit -m "init: dashboards scaffold + awarion v0"
 git push -u origin main
 ```
 
-### 2. Create Google Cloud service account
+### 2. Create OAuth client (one time)
 
-Once - reused for every client.
+We use OAuth user credentials, not a service account. Service-account emails are
+rejected by some Google Workspace tenants (the "This email doesn't match a Google
+Account" error). OAuth uses your existing access, so no admin grants are needed.
 
-1. https://console.cloud.google.com - create or pick a project (e.g. `behoove-dashboards`)
+1. https://console.cloud.google.com - pick or create a project (any project)
 2. Enable APIs:
    - Google Analytics Data API
    - Google Search Console API
-3. IAM and Admin - Service Accounts - Create
-   - Name: `dashboards-reader`
-   - Role: none (access is granted per-property)
-4. Open the SA - Keys - Add key - JSON - download
-5. Save the JSON locally (do NOT commit it). You'll paste its contents into GitHub Secrets next.
+3. APIs and Services - OAuth consent screen - configure as External, app name
+   "Behoove Dashboards", add yourself as a Test user. (No need to publish.)
+4. APIs and Services - Credentials - Create credentials - OAuth client ID
+   - Application type: **Desktop app**
+   - Name: `behoove-dashboards`
+5. Download the JSON. Save somewhere safe (do NOT commit it).
 
-### 3. Share properties with the SA email
+### 3. Generate the refresh token (one time)
 
-The SA has an email like `dashboards-reader@<project>.iam.gserviceaccount.com`.
+On your laptop:
 
-- **GA4:** GA4 property - Property Settings - Property Access Management - Add user with `Viewer` role.
-- **GSC:** Search Console - Settings - Users and permissions - Add user, `Restricted` role.
+```
+cd /root/repos/behoove-dashboards
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python scripts/get_refresh_token.py ~/Downloads/client_secret_*.json
+```
+
+A browser opens. Log in as `ergun@behoovestudio.com`, grant the requested scopes.
+The script prints three values: client_id, client_secret, refresh_token.
 
 ### 4. Get the property identifiers
 
 - **GA4 property ID:** numeric, in GA4 - Admin - Property Settings (e.g. `412345678`).
-- **GSC site URL:** `sc-domain:awarion.com` if you use a Domain property; `https://awarion.com/` if URL-prefix. Use whichever exists.
+- **GSC site URL:** `sc-domain:behoovestudio.com` if Domain property, or
+  `https://behoovestudio.com/` if URL-prefix.
 
 ### 5. Add GitHub repo secrets
 
-`gh secret set` or web UI - Settings - Secrets - Actions:
+`gh secret set` or Settings - Secrets - Actions:
 
 | Secret | Value |
 |---|---|
-| `GCP_SA_KEY` | Full contents of the downloaded SA JSON |
-| `AWARION_GA4_PROPERTY_ID` | e.g. `412345678` |
-| `AWARION_GSC_SITE_URL` | e.g. `sc-domain:awarion.com` |
+| `GOOGLE_OAUTH_CLIENT_ID` | printed by step 3 |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | printed by step 3 |
+| `GOOGLE_OAUTH_REFRESH_TOKEN` | printed by step 3 |
+| `BEHOOVE_GA4_PROPERTY_ID` | e.g. `412345678` |
+| `BEHOOVE_GSC_SITE_URL` | e.g. `sc-domain:behoovestudio.com` |
+
+Later, for Awarion or other clients: add `AWARION_GA4_PROPERTY_ID` and
+`AWARION_GSC_SITE_URL` (the OAuth secrets are shared across all clients).
 
 ### 6. Manually trigger first run
 
